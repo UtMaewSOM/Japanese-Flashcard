@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japanese Memory Flashcards</title>
+    <style>
+        :root {
+            --primary-color: #ff6b6b;
+            --secondary-color: #4ecdc4;
+            --accent-color: #feca57;
+            --bg-color: #f7f9fc;
+            --text-main: #2d3436;
+            --text-muted: #636e72;
+            --card-bg: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color); color: var(--text-main);
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            min-height: 100vh; padding: 40px 20px;
+        }
+
+        h1 { margin-bottom: 20px; color: var(--primary-color); text-align: center; }
+
+        /* ---------------- Category Tabs ---------------- */
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; justify-content: center; max-width: 700px; }
+        .tab-btn { background-color: transparent; border: 2px solid var(--text-muted); color: var(--text-muted); padding: 8px 16px; font-size: 1rem; font-weight: bold; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; }
+        .tab-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .tab-btn.active { background-color: var(--primary-color); border-color: var(--primary-color); color: white; }
+        .tab-btn.custom-tab { border-color: var(--accent-color); color: var(--accent-color); }
+        .tab-btn.custom-tab:hover, .tab-btn.custom-tab.active { background-color: var(--accent-color); color: white; border-color: var(--accent-color); }
+
+        /* ---------------- Sub-Tabs (Kana Types) ---------------- */
+        .sub-tabs { display: none; gap: 8px; margin-bottom: 15px; justify-content: center; flex-wrap: wrap; max-width: 600px; }
+        .sub-tab-btn { background-color: #e1e8ed; border: none; color: #34495e; padding: 6px 12px; font-size: 0.9rem; font-weight: bold; border-radius: 15px; cursor: pointer; transition: 0.2s; }
+        .sub-tab-btn:hover { background-color: #cbd5dc; }
+        .sub-tab-btn.active { background-color: var(--secondary-color); color: white; }
+
+        /* ---------------- Mixed Kana Controls ---------------- */
+        .mixed-controls { display: none; gap: 15px; margin-bottom: 25px; justify-content: center; flex-wrap: wrap; background: #f1f2f6; padding: 12px 20px; border-radius: 10px; width: 100%; max-width: 450px; }
+        .mixed-controls label { display: flex; align-items: center; gap: 5px; font-weight: bold; cursor: pointer; color: var(--text-main); font-size: 0.95rem; }
+        .mixed-controls input[type="checkbox"] { transform: scale(1.2); cursor: pointer; accent-color: var(--primary-color); }
+
+        /* ---------------- View Containers ---------------- */
+        #flashcard-view { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 400px; }
+        #manage-view, #list-view { display: none; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 100%; max-width: 500px; }
+        #list-view { max-width: 700px; }
+        
+        .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .close-btn { background: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;}
+        .close-btn:hover { background: #7f8c8d; }
+        
+        /* Table Styles */
+        .table-container { overflow-x: auto; max-height: 500px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: var(--primary-color); color: white; white-space: nowrap; position: sticky; top: 0; z-index: 1;}
+        tr:hover { background-color: #f1f2f6; }
+        .checkbox-cell { text-align: center; }
+
+        /* ---------------- Flashcard CSS ---------------- */
+        .flashcard-container { background-color: transparent; width: 320px; height: 320px; perspective: 1000px; margin-bottom: 25px; cursor: pointer; }
+        .flashcard { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-radius: 15px; }
+        .flashcard.is-flipped { transform: rotateY(180deg); }
+        
+        .card-face { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 15px; padding: 20px; }
+        .card-front { background-color: var(--card-bg); border: 2px solid #eee; }
+        .card-back { background-color: var(--primary-color); color: white; transform: rotateY(180deg); }
+        .flashcard.custom-mode .card-back { background-color: var(--accent-color); }
+
+        .card-image { width: 100px; height: 100px; object-fit: contain; margin-bottom: 10px; border-radius: 8px; display: none; }
+        .audio-btn { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.05); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; z-index: 10; }
+        .card-back .audio-btn { background: rgba(255,255,255,0.2); color: white; }
+        .audio-btn:hover { transform: scale(1.1); background: rgba(0,0,0,0.1); }
+
+        .front-main { font-size: 3rem; font-weight: bold; margin-bottom: 5px; color: var(--text-main); }
+        .front-sub { font-size: 1.5rem; color: var(--primary-color); font-weight: bold; }
+        .flashcard.custom-mode .front-sub { color: var(--accent-color); }
+        
+        .back-main { font-size: 2rem; margin-bottom: 15px; font-weight: bold; }
+        .back-sub { font-size: 1.3rem; }
+        .click-hint { font-size: 0.85rem; color: var(--text-muted); margin-top: 15px; position: absolute; bottom: 20px; }
+        .card-back .click-hint { color: rgba(255,255,255,0.7); }
+
+        /* ปุ่มควบคุม */
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; justify-content: center;}
+        .control-btn { background-color: white; border: 2px solid var(--secondary-color); color: var(--secondary-color); padding: 10px 15px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; flex: 1; max-width: 100px;}
+        .control-btn:hover { background-color: var(--secondary-color); color: white; }
+        .counter { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px; }
+        
+        .action-btn { width: 100%; background-color: #f1f2f6; color: var(--text-main); border: none; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; margin-bottom: 10px; transition: 0.2s;}
+        .action-btn:hover { background-color: #e1e2e6; }
+        .btn-danger { background-color: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-danger:hover { background-color: #e74c3c; color: white; }
+        #delete-cat-btn { width: 100%; display: none; margin-top: 10px; }
+
+        /* ---------------- Form Manage CSS ---------------- */
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: var(--text-main); font-size: 0.9rem;}
+        .form-group input[type="text"], .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; font-family: inherit; }
+        .form-group input[type="file"] { width: 100%; padding: 8px; border: 1px dashed #ccc; border-radius: 8px; background: #fafafa;}
+        .media-box { border: 1px solid #eee; padding: 15px; border-radius: 8px; background: #fdfdfd; margin-bottom: 20px;}
+        .media-box h4 { margin-bottom: 10px; color: var(--primary-color); font-size: 0.95rem; }
+        .radio-group { display: flex; gap: 15px; margin-bottom: 10px; font-size: 0.9rem;}
+        
+        .submit-btn { width: 100%; background-color: var(--primary-color); color: white; border: none; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+        .submit-btn:hover { opacity: 0.9; }
+        .msg-success { color: #2ecc71; text-align: center; margin-top: 10px; display: none; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <h1>📝 แฟลชการ์ดภาษาญี่ปุ่น</h1>
+
+    <div class="tabs" id="tabs-container"></div>
+    <div class="sub-tabs" id="sub-tabs-container"></div>
+    
+    <!-- แผงควบคุมการผสมหมวดหมู่ -->
+    <div class="mixed-controls" id="mixed-kana-controls">
+        <label><input type="checkbox" class="mixed-kana-checkbox" value="normal" checked onchange="updateMixedKana()"> พื้นฐาน</label>
+        <label><input type="checkbox" class="mixed-kana-checkbox" value="dakuon" checked onchange="updateMixedKana()"> เสียงขุ่น</label>
+        <label><input type="checkbox" class="mixed-kana-checkbox" value="handakuon" onchange="updateMixedKana()"> กึ่งขุ่น</label>
+        <label><input type="checkbox" class="mixed-kana-checkbox" value="yoon" onchange="updateMixedKana()"> เสียงควบ</label>
+    </div>
+
+    <!-- ================== 1. ส่วนแสดงการ์ด ================== -->
+    <div id="flashcard-view">
+        <div class="flashcard-container" onclick="flipCard()">
+            <div class="flashcard" id="flashcard">
+                <div class="card-face card-front">
+                    <button class="audio-btn" id="audio-btn-front" onclick="playAudio(event)" title="ฟังเสียง">🔊</button>
+                    <img id="card-image" class="card-image" src="" alt="รูปภาพ">
+                    <div class="front-main" id="front-main-display"></div>
+                    <div class="front-sub" id="front-sub-display"></div>
+                    <div class="click-hint">คลิกเพื่อพลิกการ์ด</div>
+                </div>
+                <div class="card-face card-back">
+                    <button class="audio-btn" id="audio-btn-back" onclick="playAudio(event)" title="ฟังเสียง">🔊</button>
+                    <div class="back-main" id="back-main-display"></div>
+                    <div class="back-sub" id="back-sub-display"></div>
+                    <div class="click-hint">คลิกเพื่อพลิกการ์ด</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" onclick="prevCard()">⬅️ กลับ</button>
+            <button class="control-btn" onclick="shuffleCards()">🔀 สุ่ม</button>
+            <button class="control-btn" onclick="nextCard()">ถัดไป ➡️</button>
+        </div>
+        <div class="counter" id="counter-display"></div>
+        
+        <button class="action-btn" onclick="showListView()">📋 ดูคำศัพท์ในหมวดนี้</button>
+        <button id="delete-cat-btn" class="btn-danger" onclick="deleteCurrentCustomCategory()">🗑️ ลบหมวดหมู่นี้ทั้งหมด</button>
+    </div>
+
+    <!-- ================== 2. ส่วนดูและจัดการคำศัพท์ (List View) ================== -->
+    <div id="list-view">
+        <div class="list-header">
+            <h3 style="color: var(--primary-color); margin: 0;">📋 หมวด: <span id="list-category-name"></span></h3>
+            <div>
+                <button id="delete-selected-btn" class="btn-danger" style="display:none;" onclick="deleteSelectedWords()">🗑️ ลบคำที่เลือก</button>
+                <button class="close-btn" onclick="hideListView()">❌ ปิด</button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th id="th-checkbox" class="checkbox-cell" style="display:none; width: 40px;">
+                            <input type="checkbox" id="check-all" onclick="toggleAllCheckboxes(this)" title="เลือกทั้งหมด">
+                        </th>
+                        <th>#</th>
+                        <th>คันจิ/อักษร</th>
+                        <th>คำอ่าน (ญี่ปุ่น)</th>
+                        <th>คำอ่าน (ENG)</th>
+                        <th>คำแปล/ไทย</th>
+                    </tr>
+                </thead>
+                <tbody id="vocab-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ================== 3. ส่วนจัดการคำศัพท์ (เพิ่มคำ) ================== -->
+    <div id="manage-view">
+        <h2 style="text-align: center; color: var(--primary-color); margin-bottom: 20px;">➕ เพิ่มคำศัพท์ใหม่</h2>
+        
+        <div class="form-group">
+            <label>หมวดหมู่ที่ต้องการเพิ่ม</label>
+            <select id="input-category-select" onchange="toggleNewCategoryInput()"></select>
+            <input type="text" id="input-new-category" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่ที่นี่..." style="display:none; margin-top:10px;">
+        </div>
+        
+        <div class="form-group">
+            <label>1. คำศัพท์หลัก (เช่น คันจิ)</label>
+            <input type="text" id="input-front" placeholder="เช่น 猫">
+        </div>
+        <div class="form-group">
+            <label>2. คำอ่านญี่ปุ่น (ฮิรางานะ/คาตาคานะ)</label>
+            <input type="text" id="input-reading" placeholder="เช่น ねこ">
+        </div>
+        <div class="form-group">
+            <label>3. คำอ่านภาษาอังกฤษ (Romaji)</label>
+            <input type="text" id="input-romaji" placeholder="เช่น neko">
+        </div>
+        <div class="form-group">
+            <label>4. คำแปลภาษาไทย</label>
+            <input type="text" id="input-meaning" placeholder="เช่น แมว">
+        </div>
+
+        <div class="media-box">
+            <h4>🖼️ เพิ่มรูปภาพ (เลือกได้)</h4>
+            <div class="radio-group">
+                <label><input type="radio" name="image-source" value="url" checked onchange="toggleImageInput()"> จากลิงก์ (URL)</label>
+                <label><input type="radio" name="image-source" value="local" onchange="toggleImageInput()"> จากในเครื่อง</label>
+            </div>
+            <input type="text" id="input-image-url" placeholder="วางลิงก์รูปภาพที่นี่ (http://...)">
+            <input type="file" id="input-image-file" accept="image/*" style="display:none;">
+        </div>
+
+        <div class="media-box">
+            <h4>🎵 ไฟล์เสียงพิเศษ (เลือกได้)</h4>
+            <label style="font-weight:normal; font-size:0.85rem; color:#7f8c8d; margin-bottom:5px; display:block;">
+                ระบบมี <strong>AI อ่านออกเสียงอัตโนมัติ</strong> ให้อยู่แล้ว<br>(อัปโหลดไฟล์เฉพาะเมื่อต้องการใช้เสียงของคุณเอง)
+            </label>
+            <input type="file" id="input-audio-file" accept="audio/*">
+        </div>
+        
+        <button class="submit-btn" onclick="saveCustomCard()">บันทึกคำศัพท์</button>
+        <div class="msg-success" id="msg-success">✅ บันทึกสำเร็จ!</div>
+    </div>
+
+    <script>
+        // ฟังก์ชันสร้างข้อมูล Kana พร้อม "คำแปล" (ซึ่งในที่นี้คือคำอ่านภาษาไทย)
+        function makeKana(str) {
+            return str.split(',').map(s => {
+                const [f, r, t] = s.split(':');
+                return { front: f, reading: "", romaji: r, meaning: t || "", image: "", audio: "" };
+            });
+        }
+
+        // --- ฐานข้อมูลหลักของฮิรางานะ / คาตาคานะ (แบบจัดเต็ม พร้อมคำอ่านไทย) ---
+        const kanaData = {
+            hiragana: {
+                name: "あ ฮิรางานะ",
+                subTabs: {
+                    normal: { name: "พื้นฐาน (Gojuon)", cards: makeKana("あ:a:อะ,い:i:อิ,う:u:อุ,え:e:เอะ,お:o:โอะ,か:ka:คะ,き:ki:คิ,く:ku:คุ,け:ke:เคะ,こ:ko:โคะ,さ:sa:สะ,し:shi:ชิ,す:su:ซุ,せ:se:เซะ,そ:so:โซะ,た:ta:ทะ,ち:chi:จิ,つ:tsu:สึ,て:te:เทะ,と:to:โทะ,な:na:นะ,に:ni:นิ,ぬ:nu:นุ,ね:ne:เนะ,の:no:โนะ,は:ha:ฮะ,ひ:hi:ฮิ,ふ:fu:ฟุ,へ:he:เฮะ,ほ:ho:โฮะ,ま:ma:มะ,み:mi:มิ,む:mu:มุ,め:me:เมะ,も:mo:โมะ,や:ya:ยะ,ゆ:yu:ยุ,よ:yo:โยะ,ら:ra:ระ,り:ri:ริ,る:ru:รุ,れ:re:เระ,ろ:ro:โระ,わ:wa:วะ,を:wo:โวะ,ん:n:อึน") },
+                    dakuon: { name: "เสียงขุ่น (Dakuon)", cards: makeKana("が:ga:กะ,ぎ:gi:กิ,ぐ:gu:กุ,げ:ge:เกะ,ご:go:โกะ,ざ:za:ซะ,じ:ji:จิ,ず:zu:ซุ,ぜ:ze:เซะ,ぞ:zo:โซะ,だ:da:ดะ,ぢ:ji:จิ,づ:zu:ซุ,で:de:เดะ,ど:do:โดะ,ば:ba:บะ,び:bi:บิ,ぶ:bu:บุ,べ:be:เบะ,ぼ:bo:โบะ") },
+                    handakuon: { name: "กึ่งขุ่น (Handakuon)", cards: makeKana("ぱ:pa:ปะ,ぴ:pi:ปิ,ぷ:pu:ปุ,ぺ:pe:เปะ,ぽ:po:โปะ") },
+                    yoon: { name: "เสียงควบ (Yoon)", cards: makeKana("きゃ:kya:เคียะ,きゅ:kyu:คิว,きょ:kyo:เคียว,しゃ:sha:ชะ,しゅ:shu:ชุ,しょ:sho:โชะ,ちゃ:cha:จะ,ちゅ:chu:จุ,ちょ:cho:โจะ,にゃ:nya:เนียะ,にゅ:nyu:นิว,にょ:nyo:เนียว,ひゃ:hya:เฮียะ,ひゅ:hyu:ฮิว,ひょ:hyo:เฮียว,みゃ:mya:เมียะ,みゅ:myu:มิว,みょ:myo:เมียว,りゃ:rya:เรียะ,りゅ:ryu:ริว,りょ:ryo:เรียว,ぎゃ:gya:เกียะ,ぎゅ:gyu:กิว,ぎょ:gyo:เกียว,じゃ:ja:จะ,じゅ:ju:จุ,じょ:jo:โจะ,びゃ:bya:เบียะ,びゅ:byu:บิว,びょ:byo:เบียว,ぴゃ:pya:เปียะ,ぴゅ:pyu:ปิว,ぴょ:pyo:เปียว") }
+                }
+            },
+            katakana: {
+                name: "ア คาตาคานะ",
+                subTabs: {
+                    normal: { name: "พื้นฐาน (Gojuon)", cards: makeKana("ア:a:อะ,イ:i:อิ,ウ:u:อุ,エ:e:เอะ,オ:o:โอะ,カ:ka:คะ,キ:ki:คิ,ク:ku:คุ,ケ:ke:เคะ,コ:ko:โคะ,サ:sa:สะ,シ:shi:ชิ,ス:su:ซุ,セ:se:เซะ,ソ:so:โซะ,タ:ta:ทะ,チ:chi:จิ,ツ:tsu:สึ,テ:te:เทะ,ト:to:โทะ,ナ:na:นะ,ニ:ni:นิ,ヌ:nu:นุ,ネ:ne:เนะ,ノ:no:โนะ,ハ:ha:ฮะ,ヒ:hi:ฮิ,フ:fu:ฟุ,ヘ:he:เฮะ,ホ:ho:โฮะ,マ:ma:มะ,ミ:mi:มิ,ム:mu:มุ,メ:me:เมะ,モ:mo:โมะ,ヤ:ya:ยะ,ユ:yu:ยุ,ヨ:yo:โยะ,ラ:ra:ระ,リ:ri:ริ,ル:ru:รุ,レ:re:เระ,ロ:ro:โระ,ワ:wa:วะ,ヲ:wo:โวะ,ン:n:อึน") },
+                    dakuon: { name: "เสียงขุ่น (Dakuon)", cards: makeKana("ガ:ga:กะ,ギ:gi:กิ,グ:gu:กุ,ゲ:ge:เกะ,ゴ:go:โกะ,ザ:za:ซะ,ジ:ji:จิ,ズ:zu:ซุ,ゼ:ze:เซะ,ゾ:zo:โซะ,ダ:da:ดะ,ヂ:ji:จิ,ヅ:zu:ซุ,デ:de:เดะ,ド:do:โดะ,バ:ba:บะ,ビ:bi:บิ,ブ:bu:บุ,ベ:be:เบะ,ボ:bo:โบะ") },
+                    handakuon: { name: "กึ่งขุ่น (Handakuon)", cards: makeKana("パ:pa:ปะ,ピ:pi:ปิ,プ:pu:ปุ,ペ:pe:เปะ,ポ:po:โปะ") },
+                    yoon: { name: "เสียงควบ (Yoon)", cards: makeKana("キャ:kya:เคียะ,キュ:kyu:คิว,キョ:kyo:เคียว,シャ:sha:ชะ,シュ:shu:ชุ,ショ:sho:โชะ,チャ:cha:จะ,チュ:chu:จุ,チョ:cho:โจะ,ニャ:nya:เนียะ,ニュ:nyu:นิว,ニョ:nyo:เนียว,ヒャ:hya:เฮียะ,ヒュ:hyu:ฮิว,ヒョ:hyo:เฮียว,ミャ:mya:เมียะ,ミュ:myu:มิว,ミョ:myo:เมียว,リャ:rya:เรียะ,リュ:ryu:ริว,リョ:ryo:เรียว,ギャ:gya:เกียะ,ギュ:gyu:กิว,ギョ:gyo:เกียว,ジャ:ja:จะ,ジュ:ju:จุ,ジョ:jo:โจะ,ビャ:bya:เบียะ,ビュ:byu:บิว,ビョ:byo:เบียว,ピャ:pya:เปียะ,ピュ:pyu:ปิว,ピョ:pyo:เปียว") }
+                }
+            }
+        };
+
+        // --- โหลดข้อมูลคำศัพท์ ---
+        let customData = JSON.parse(localStorage.getItem('myJapaneseFlashcards_v4')) || {};
+        if (!customData['vocab']) {
+            customData['vocab'] = [
+                { front: "大学", reading: "だいがく", romaji: "daigaku", meaning: "มหาวิทยาลัย", image: "https://cdn-icons-png.flaticon.com/512/2231/2231662.png", audio: "" },
+                { front: "学生", reading: "がくせい", romaji: "gakusei", meaning: "นักศึกษา", image: "", audio: "" },
+                { front: "言語", reading: "げんご", romaji: "gengo", meaning: "ภาษา", image: "", audio: "" },
+                { front: "開発", reading: "かいはつ", romaji: "kaihatsu", meaning: "การพัฒนา", image: "", audio: "" }
+            ];
+            localStorage.setItem('myJapaneseFlashcards_v4', JSON.stringify(customData));
+        }
+        
+        let currentCategory = 'vocab'; 
+        let currentSubCategory = 'normal';
+        let currentCategoryName = '📚 คำศัพท์';
+        let isKanaMode = false;
+        let currentList = [];
+        let currentIndex = 0;
+        let audioPlayer = new Audio();
+
+        const tabsContainer = document.getElementById('tabs-container');
+        const subTabsContainer = document.getElementById('sub-tabs-container');
+        const mixedKanaControls = document.getElementById('mixed-kana-controls');
+        const flashcardView = document.getElementById('flashcard-view');
+        const manageView = document.getElementById('manage-view');
+        const listView = document.getElementById('list-view');
+        const flashcard = document.getElementById('flashcard');
+        const deleteCatBtn = document.getElementById('delete-cat-btn');
+
+        // ================== ฟังก์ชันระบบ UI ==================
+
+        function renderTabs() {
+            tabsContainer.innerHTML = ''; 
+
+            const vocabBtn = document.createElement('button');
+            vocabBtn.className = `tab-btn ${currentCategory === 'vocab' ? 'active' : ''}`;
+            vocabBtn.textContent = "📚 คำศัพท์";
+            vocabBtn.onclick = () => loadVocabCategory('vocab', "📚 คำศัพท์");
+            tabsContainer.appendChild(vocabBtn);
+
+            for (let key in kanaData) {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${currentCategory === key ? 'active' : ''}`;
+                btn.textContent = kanaData[key].name;
+                btn.onclick = () => loadKanaCategory(key, kanaData[key].name);
+                tabsContainer.appendChild(btn);
+            }
+
+            for (let key in customData) {
+                if (key === 'vocab') continue;
+                const btn = document.createElement('button');
+                btn.className = `tab-btn custom-tab ${currentCategory === key ? 'active' : ''}`;
+                btn.textContent = `🏷️ ${key}`;
+                btn.onclick = () => loadVocabCategory(key, key);
+                tabsContainer.appendChild(btn);
+            }
+
+            const manageBtn = document.createElement('button');
+            manageBtn.className = `tab-btn ${currentCategory === 'manage' ? 'active' : ''}`;
+            manageBtn.textContent = '➕ เพิ่มคำศัพท์';
+            manageBtn.style.borderColor = '#2ecc71';
+            manageBtn.style.color = currentCategory === 'manage' ? 'white' : '#2ecc71';
+            if(currentCategory === 'manage') manageBtn.style.backgroundColor = '#2ecc71';
+            manageBtn.onclick = showManageView;
+            tabsContainer.appendChild(manageBtn);
+        }
+
+        function loadVocabCategory(categoryId, catName) {
+            currentCategory = categoryId; currentCategoryName = catName;
+            isKanaMode = false; currentIndex = 0;
+            currentList = customData[categoryId] || [];
+
+            flashcardView.style.display = 'flex';
+            manageView.style.display = 'none'; listView.style.display = 'none';
+            subTabsContainer.style.display = 'none'; mixedKanaControls.style.display = 'none';
+
+            if(categoryId === 'vocab') {
+                flashcard.classList.remove('custom-mode'); deleteCatBtn.style.display = 'none';
+            } else {
+                flashcard.classList.add('custom-mode'); deleteCatBtn.style.display = 'block';
+            }
+
+            renderTabs(); updateCard();
+        }
+
+        function loadKanaCategory(type, catName) {
+            currentCategory = type; currentCategoryName = catName;
+            isKanaMode = true; currentSubCategory = 'normal'; 
+            
+            flashcardView.style.display = 'flex';
+            manageView.style.display = 'none'; listView.style.display = 'none';
+            flashcard.classList.remove('custom-mode'); deleteCatBtn.style.display = 'none';
+
+            renderTabs(); renderSubTabs(type);
+        }
+
+        // ================== ระบบ Sub-Tabs และ เลือกผสม (Combined Mode) ==================
+
+        function renderSubTabs(type) {
+            subTabsContainer.innerHTML = '';
+            subTabsContainer.style.display = 'flex';
+            
+            const subData = kanaData[type].subTabs;
+            // วนสร้างปุ่มหมวดหมู่ปกติ
+            for (let subKey in subData) {
+                const btn = document.createElement('button');
+                btn.className = `sub-tab-btn ${currentSubCategory === subKey ? 'active' : ''}`;
+                btn.textContent = subData[subKey].name;
+                btn.dataset.key = subKey;
+                btn.onclick = () => switchKanaSubCategory(type, subKey);
+                subTabsContainer.appendChild(btn);
+            }
+            
+            // เพิ่มปุ่ม "ผสมเอง" ต่อท้าย
+            const mixedBtn = document.createElement('button');
+            mixedBtn.className = `sub-tab-btn ${currentSubCategory === 'mixed' ? 'active' : ''}`;
+            mixedBtn.textContent = "🔀 เลือกผสมเอง";
+            mixedBtn.dataset.key = 'mixed';
+            mixedBtn.style.backgroundColor = "#ffeaa7"; // สีเด่นนิดนึง
+            mixedBtn.style.color = "#d35400";
+            mixedBtn.onclick = () => switchKanaSubCategory(type, 'mixed');
+            subTabsContainer.appendChild(mixedBtn);
+
+            switchKanaSubCategory(type, currentSubCategory);
+        }
+
+        function switchKanaSubCategory(type, subKey) {
+            currentSubCategory = subKey;
+            
+            // อัปเดต UI ของปุ่มซับแท็บ
+            const btns = subTabsContainer.querySelectorAll('.sub-tab-btn');
+            btns.forEach(btn => btn.classList.toggle('active', btn.dataset.key === subKey));
+
+            if (subKey === 'mixed') {
+                mixedKanaControls.style.display = 'flex';
+                updateMixedKana(); // เรียกฟังก์ชันรวมหมวด
+            } else {
+                mixedKanaControls.style.display = 'none';
+                currentList = kanaData[type].subTabs[subKey].cards;
+                currentIndex = 0;
+                updateCard();
+            }
+        }
+
+        // ฟังก์ชันเมื่อมีการติ๊กเลือก Checkbox ผสมหมวดหมู่
+        function updateMixedKana() {
+            const checkboxes = document.querySelectorAll('.mixed-kana-checkbox:checked');
+            currentList = [];
+            
+            checkboxes.forEach(cb => {
+                const key = cb.value;
+                // ดึงการ์ดในหมวดที่เลือกมาต่อกัน
+                currentList = currentList.concat(kanaData[currentCategory].subTabs[key].cards);
+            });
+
+            if (currentList.length > 0) {
+                // สลับการ์ดแบบสุ่ม (Shuffle) ทันทีที่เลือก เพื่อให้เหมาะกับการทดสอบ
+                for (let i = currentList.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [currentList[i], currentList[j]] = [currentList[j], currentList[i]];
+                }
+            }
+            
+            currentIndex = 0;
+            updateCard();
+        }
+
+        function showManageView() {
+            currentCategory = 'manage';
+            flashcardView.style.display = 'none'; listView.style.display = 'none';
+            subTabsContainer.style.display = 'none'; mixedKanaControls.style.display = 'none';
+            manageView.style.display = 'block';
+            updateCategorySelectDropdown(); renderTabs();
+        }
+
+        // ================== ฟังก์ชันระบบ Flashcard ==================
+
+        function flipCard() { flashcard.classList.toggle('is-flipped'); }
+
+        function updateCard() {
+            if (currentList.length === 0) {
+                document.getElementById('front-main-display').textContent = "ไม่มีข้อมูล";
+                document.getElementById('front-sub-display').style.display = "none";
+                return;
+            }
+            if (flashcard.classList.contains('is-flipped')) {
+                flashcard.classList.remove('is-flipped');
+                setTimeout(setCardContent, 300);
+            } else {
+                setCardContent();
+            }
+        }
+
+        function setCardContent() {
+            if (currentList.length === 0) return;
+            const item = currentList[currentIndex];
+            
+            document.getElementById('front-main-display').textContent = item.front || "-";
+            const frontSub = document.getElementById('front-sub-display');
+            if(item.reading) { frontSub.style.display = "block"; frontSub.textContent = item.reading; } 
+            else { frontSub.style.display = "none"; }
+            
+            const backMain = document.getElementById('back-main-display');
+            if(item.romaji) { backMain.style.display = "block"; backMain.textContent = item.romaji; } 
+            else { backMain.style.display = "none"; }
+            
+            // ตรงนี้สำหรับแสดงคำแปล (ซึ่งในโหมดตัวอักษรจะเป็น "คำอ่านภาษาไทย")
+            const backSub = document.getElementById('back-sub-display');
+            if(item.meaning) { backSub.style.display = "block"; backSub.textContent = item.meaning; } 
+            else { backSub.style.display = "none"; }
+
+            const imgEl = document.getElementById('card-image');
+            if (item.image && item.image !== "") {
+                imgEl.src = item.image; imgEl.style.display = "block";
+                document.getElementById('front-main-display').style.fontSize = "2.2rem";
+            } else {
+                imgEl.style.display = "none";
+                document.getElementById('front-main-display').style.fontSize = "3rem";
+            }
+
+            document.getElementById('audio-btn-front').style.display = "flex";
+            document.getElementById('audio-btn-back').style.display = "flex";
+            document.getElementById('counter-display').textContent = `${currentIndex + 1} / ${currentList.length}`;
+        }
+
+        function playAudio(event) {
+            event.stopPropagation(); 
+            if (currentList.length === 0) return;
+            const item = currentList[currentIndex];
+            window.speechSynthesis.cancel();
+
+            if (item.audio && item.audio !== "") {
+                audioPlayer.src = item.audio; audioPlayer.play();
+            } else {
+                if ('speechSynthesis' in window) {
+                    const textToRead = item.reading || item.front;
+                    if (textToRead) {
+                        const utterance = new SpeechSynthesisUtterance(textToRead);
+                        utterance.lang = 'ja-JP'; 
+                        utterance.rate = 0.65;    
+                        window.speechSynthesis.speak(utterance);
+                    }
+                } else { alert("⚠️ เบราว์เซอร์ของคุณไม่รองรับระบบอ่านออกเสียงอัตโนมัติครับ"); }
+            }
+        }
+
+        function nextCard() { currentIndex = (currentIndex + 1) % currentList.length; updateCard(); }
+        function prevCard() { currentIndex = (currentIndex - 1 + currentList.length) % currentList.length; updateCard(); }
+        function shuffleCards() {
+            for (let i = currentList.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentList[i], currentList[j]] = [currentList[j], currentList[i]];
+            }
+            currentIndex = 0; updateCard();
+        }
+
+        // ================== ฟังก์ชันดูรายการและลบ ==================
+
+        function showListView() {
+            flashcardView.style.display = 'none';
+            listView.style.display = 'block';
+            subTabsContainer.style.display = 'none'; 
+            mixedKanaControls.style.display = 'none';
+            
+            let titleText = currentCategoryName;
+            if(isKanaMode) {
+                if(currentSubCategory === 'mixed') {
+                    titleText += ` (🔀 ผสมเอง)`;
+                } else {
+                    titleText += ` (${kanaData[currentCategory].subTabs[currentSubCategory].name})`;
+                }
+            }
+            document.getElementById('list-category-name').textContent = titleText;
+            
+            const tbody = document.getElementById('vocab-table-body');
+            const thCheckbox = document.getElementById('th-checkbox');
+            const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+            
+            tbody.innerHTML = '';
+            
+            if (!isKanaMode) {
+                thCheckbox.style.display = 'table-cell'; deleteSelectedBtn.style.display = 'inline-block';
+            } else {
+                thCheckbox.style.display = 'none'; deleteSelectedBtn.style.display = 'none';
+            }
+            
+            if(currentList.length === 0) {
+                const colSpan = !isKanaMode ? 6 : 5;
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;">ไม่มีข้อมูลในหมวดนี้</td></tr>`;
+                return;
+            }
+
+            currentList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                let checkboxHTML = !isKanaMode ? `<td class="checkbox-cell"><input type="checkbox" class="vocab-checkbox" value="${index}"></td>` : '';
+                tr.innerHTML = `
+                    ${checkboxHTML}
+                    <td>${index + 1}</td>
+                    <td><strong>${item.front || '-'}</strong></td>
+                    <td>${item.reading || '-'}</td>
+                    <td>${item.romaji || '-'}</td>
+                    <td>${item.meaning || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const checkAll = document.getElementById('check-all');
+            if(checkAll) checkAll.checked = false;
+        }
+
+        function hideListView() {
+            listView.style.display = 'none';
+            flashcardView.style.display = 'flex';
+            if (isKanaMode) {
+                subTabsContainer.style.display = 'flex'; 
+                if (currentSubCategory === 'mixed') mixedKanaControls.style.display = 'flex';
+            }
+            updateCard(); 
+        }
+
+        function toggleAllCheckboxes(source) {
+            const checkboxes = document.querySelectorAll('.vocab-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+        }
+
+        function deleteSelectedWords() {
+            const checkboxes = document.querySelectorAll('.vocab-checkbox:checked');
+            if (checkboxes.length === 0) { alert("⚠️ กรุณาเลือกคำศัพท์ที่ต้องการลบอย่างน้อย 1 คำครับ"); return; }
+
+            if (confirm(`คุณแน่ใจหรือไม่ว่าจะลบคำศัพท์ที่เลือกจำนวน ${checkboxes.length} คำ?`)) {
+                const indices = Array.from(checkboxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
+                indices.forEach(index => { customData[currentCategory].splice(index, 1); });
+
+                if (customData[currentCategory].length === 0 && currentCategory !== 'vocab') {
+                    delete customData[currentCategory];
+                    localStorage.setItem('myJapaneseFlashcards_v4', JSON.stringify(customData));
+                    alert(`ลบคำศัพท์หมดแล้ว หมวดหมู่ "${currentCategoryName}" จึงถูกลบออกอัตโนมัติ`);
+                    loadVocabCategory('vocab', "📚 คำศัพท์");
+                    return;
+                }
+
+                localStorage.setItem('myJapaneseFlashcards_v4', JSON.stringify(customData));
+                currentList = customData[currentCategory];
+                if (currentIndex >= currentList.length) currentIndex = 0;
+                showListView();
+            }
+        }
+
+        function deleteCurrentCustomCategory() {
+            if (confirm(`⚠️ คุณต้องการลบหมวดหมู่ "${currentCategory}" และคำศัพท์ข้างในทั้งหมดใช่หรือไม่?`)) {
+                delete customData[currentCategory];
+                localStorage.setItem('myJapaneseFlashcards_v4', JSON.stringify(customData));
+                loadVocabCategory('vocab', "📚 คำศัพท์"); 
+            }
+        }
+
+        // ================== ฟังก์ชันจัดการฟอร์มเพิ่มคำศัพท์ ==================
+
+        function updateCategorySelectDropdown() {
+            const selectEl = document.getElementById('input-category-select');
+            selectEl.innerHTML = `<option value="vocab">📚 คำศัพท์ (หมวดพื้นฐาน)</option>`;
+            for (let key in customData) {
+                if(key !== 'vocab') selectEl.innerHTML += `<option value="${key}">🏷️ ${key}</option>`;
+            }
+            selectEl.innerHTML += `<option value="NEW_CATEGORY">➕ สร้างหมวดหมู่ใหม่...</option>`;
+        }
+
+        function toggleNewCategoryInput() {
+            const selectEl = document.getElementById('input-category-select');
+            const newCatInput = document.getElementById('input-new-category');
+            if (selectEl.value === 'NEW_CATEGORY') {
+                newCatInput.style.display = 'block'; newCatInput.focus();
+            } else { newCatInput.style.display = 'none'; }
+        }
+
+        function toggleImageInput() {
+            const sourceType = document.querySelector('input[name="image-source"]:checked').value;
+            const urlInput = document.getElementById('input-image-url');
+            const fileInput = document.getElementById('input-image-file');
+            if (sourceType === 'url') {
+                urlInput.style.display = 'block'; fileInput.style.display = 'none';
+            } else {
+                urlInput.style.display = 'none'; fileInput.style.display = 'block';
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function saveCustomCard() {
+            let catInput = document.getElementById('input-category-select').value;
+            if (catInput === 'NEW_CATEGORY') {
+                catInput = document.getElementById('input-new-category').value.trim();
+                if(!catInput) { alert("⚠️ กรุณาตั้งชื่อหมวดหมู่ใหม่ด้วยครับ"); return; }
+            }
+
+            const frontInput = document.getElementById('input-front').value.trim();
+            const readingInput = document.getElementById('input-reading').value.trim();
+            const romajiInput = document.getElementById('input-romaji').value.trim();
+            const meaningInput = document.getElementById('input-meaning').value.trim();
+
+            if (!frontInput) { alert("⚠️ กรุณากรอก 'คำศัพท์หลัก' เป็นอย่างน้อยครับ"); return; }
+
+            let finalImage = "";
+            const imageSource = document.querySelector('input[name="image-source"]:checked').value;
+            if (imageSource === 'url') { finalImage = document.getElementById('input-image-url').value.trim(); } 
+            else { const imgFile = document.getElementById('input-image-file').files[0]; if (imgFile) { finalImage = await readFileAsBase64(imgFile); } }
+
+            let finalAudio = "";
+            const audioFile = document.getElementById('input-audio-file').files[0];
+            if (audioFile) { finalAudio = await readFileAsBase64(audioFile); }
+
+            if (!customData[catInput]) { customData[catInput] = []; }
+
+            customData[catInput].push({ front: frontInput, reading: readingInput, romaji: romajiInput, meaning: meaningInput, image: finalImage, audio: finalAudio });
+
+            try {
+                localStorage.setItem('myJapaneseFlashcards_v4', JSON.stringify(customData));
+                const msg = document.getElementById('msg-success');
+                msg.style.display = 'block';
+                setTimeout(() => { msg.style.display = 'none'; }, 2000);
+
+                document.getElementById('input-front').value = ''; document.getElementById('input-reading').value = '';
+                document.getElementById('input-romaji').value = ''; document.getElementById('input-meaning').value = '';
+                document.getElementById('input-image-url').value = ''; document.getElementById('input-image-file').value = ''; document.getElementById('input-audio-file').value = '';
+                
+                if (document.getElementById('input-category-select').value === 'NEW_CATEGORY') {
+                    updateCategorySelectDropdown();
+                    document.getElementById('input-category-select').value = catInput;
+                    document.getElementById('input-new-category').style.display = 'none';
+                    document.getElementById('input-new-category').value = '';
+                }
+                document.getElementById('input-front').focus(); 
+            } catch (e) {
+                customData[catInput].pop(); console.error(e);
+                alert("❌ บันทึกไม่สำเร็จ! พื้นที่เก็บข้อมูลของบราวเซอร์เต็มแล้ว กรุณาใช้รูปลิงก์แทนการอัปโหลดไฟล์ หรือเลือกไฟล์เสียงที่ขนาดเล็กกว่านี้ครับ");
+            }
+        }
+
+        window.onload = () => { loadVocabCategory('vocab', "📚 คำศัพท์"); };
+    </script>
+</body>
+</html>
